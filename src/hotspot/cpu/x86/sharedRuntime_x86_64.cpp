@@ -22,7 +22,8 @@
  *
  */
 
-#if !defined(_WINDOWS) && !defined(_BSDONLY_SOURCE)
+// The BSDs declare alloca() in <stdlib.h> and have no <alloca.h>.
+#if !defined(_WINDOWS) && !defined(_ALLBSD_SOURCE)
 #include "alloca.h"
 #endif
 #ifdef _BSDONLY_SOURCE
