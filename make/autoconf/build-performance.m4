@@ -33,12 +33,15 @@ AC_DEFUN([BPERF_CHECK_CORES],
     if test "$NUM_CORES" -eq "0"; then
       NUM_CORES=`cat /proc/cpuinfo  | grep -c ^CPU`
     fi
-  elif test -x /usr/sbin/sysctl; then
-    # Looks like a MacOSX system
-    NUM_CORES=`/usr/sbin/sysctl -n hw.ncpu`
-  elif test -x /sbin/sysctl; then
-    # Looks like a BSD system
-    NUM_CORES=`/sbin/sysctl -n hw.ncpu`
+  elif test -x /usr/sbin/sysctl || test -x /sbin/sysctl; then
+    # Looks like a BSD system.  macOS keeps sysctl in /usr/sbin, the others
+    # in /sbin.
+    if test -x /usr/sbin/sysctl; then
+      SYSCTL=/usr/sbin/sysctl
+    else
+      SYSCTL=/sbin/sysctl
+    fi
+    NUM_CORES=`$SYSCTL -n hw.ncpu`
   elif test "x$OPENJDK_BUILD_OS" = xaix ; then
     NUM_CORES=`lparstat -m 2> /dev/null | $GREP -o "lcpu=[[0-9]]*" | $CUT -d "=" -f 2`
   elif test -n "$NUMBER_OF_PROCESSORS"; then
@@ -46,7 +49,7 @@ AC_DEFUN([BPERF_CHECK_CORES],
     NUM_CORES=$NUMBER_OF_PROCESSORS
   fi
 
-  if test "$NUM_CORES" -eq "0"; then
+  if test "x$NUM_CORES" = x || test "$NUM_CORES" -eq "0"; then
     NUM_CORES=1
     AC_MSG_RESULT([could not detect number of cores, defaulting to 1])
     AC_MSG_WARN([This will disable all parallelism from build!])
@@ -71,23 +74,39 @@ AC_DEFUN([BPERF_CHECK_MEMORY_SIZE],
     # Looks like an AIX system
     MEMORY_SIZE=`/usr/sbin/prtconf 2> /dev/null | grep "^Memory [[Ss]]ize" | awk '{ print [$]3 }'`
     FOUND_MEM=yes
-  elif test -x /sbin/sysctl; then
-    # Looks like a BSD system
-    MEMORY_SIZE=`/sbin/sysctl -n hw.physmem`
-    MEMORY_SIZE=`expr $MEMORY_SIZE / 1024 / 1024`
-    FOUND_MEM=yes
-    if test "x$OPENJDK_TARGET_OS_ENV" = xbsd.openbsd; then
+  elif test -x /usr/sbin/sysctl || test -x /sbin/sysctl; then
+    # Looks like a BSD system.  macOS keeps sysctl in /usr/sbin, the others
+    # in /sbin.
+    if test -x /usr/sbin/sysctl; then
+      SYSCTL=/usr/sbin/sysctl
+    else
+      SYSCTL=/sbin/sysctl
+    fi
+    # macOS answers hw.memsize.  NetBSD and OpenBSD wrap hw.physmem at 4 GB
+    # and keep the whole figure in hw.physmem64.  FreeBSD and DragonFly have
+    # only hw.physmem, and it is wide enough there.
+    for MEMORY_MIB in hw.memsize hw.physmem64 hw.physmem; do
+      MEMORY_SIZE=`$SYSCTL -n $MEMORY_MIB 2> /dev/null`
+      if test "x$MEMORY_SIZE" != x; then
+        FOUND_MEM=yes
+        break
+      fi
+    done
+    if test "x$FOUND_MEM" = xyes; then
+      MEMORY_SIZE=`expr $MEMORY_SIZE / 1024 / 1024`
+    else
+      MEMORY_SIZE=1024
+    fi
+    # OpenBSD caps the data segment per login class, and a build cannot use
+    # more than that however much the machine has.  Taken from the BSD port
+    # project, which found it first.
+    if test "x$OPENJDK_TARGET_OS_ENV" = xbsd.openbsd && test "x$FOUND_MEM" = xyes; then
       RLIMIT_DATA=`ulimit -d`
       RLIMIT_DATA=`expr $RLIMIT_DATA / 1024`
       if test "$MEMORY_SIZE" -gt "$RLIMIT_DATA"; then
         MEMORY_SIZE=$RLIMIT_DATA
       fi
     fi
-  elif test -x /usr/sbin/sysctl; then
-    # Looks like a MacOSX system
-    MEMORY_SIZE=`/usr/sbin/sysctl -n hw.memsize`
-    MEMORY_SIZE=`expr $MEMORY_SIZE / 1024 / 1024`
-    FOUND_MEM=yes
   elif test "x$OPENJDK_BUILD_OS" = xwindows; then
     # Windows, but without cygwin
     MEMORY_SIZE=`powershell -Command \

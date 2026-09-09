@@ -51,6 +51,14 @@ else ifeq ($(call isCompiler, clang), true)
     ifeq ($(call isTargetOs, linux), true)
       SetExecutableOrigin = \
           -Wl,-rpath,\$(DOLLAR)ORIGIN$1 -Wl,--disable-new-dtags
+    else ifeq ($(call isTargetOs, bsd), true)
+      # DragonFly's ld.so expands $ORIGIN in an executable's rpath only when
+      # DF_ORIGIN is set, which is what -z origin sets and which the shared
+      # libraries below are already given.  Without it bin/java cannot find
+      # libjli.so beside itself:
+      #   Shared object "libjli.so" not found, required by "java"
+      SetExecutableOrigin = \
+          -Wl,-z,origin -Wl,-rpath,\$(DOLLAR)ORIGIN$1
     else
       SetExecutableOrigin = \
           -Wl,-rpath,\$(DOLLAR)ORIGIN$1
@@ -234,6 +242,9 @@ define AddJdkLibrary
   ifeq ($(call isTargetOs, aix)+$$($1_$2_MODULE):$$($1_$2_NAME), true+java.base:jli)
     $1_$2_STATIC_LIBRARY := true
   endif
+  # OpenBSD's ld.so expands $ORIGIN nowhere, so libjli is static there for the
+  # same reason it is on AIX; see CoreLibraries.gmk.  The libraries it would
+  # otherwise have got from the shared build have to be named here.
   ifeq ($(call isTargetOsEnv, bsd.openbsd)+$$($1_$2_MODULE):$$($1_$2_NAME), true+java.base:jli)
     $1_$2_STATIC_LIBRARY := true
     $1_LIBS += $(LIBZ_LIBS) $(LIBPTHREAD)
