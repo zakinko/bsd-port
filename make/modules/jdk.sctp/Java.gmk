@@ -47,15 +47,19 @@ ifeq ($(call isTargetOs, aix), true)
   EXCLUDE_FILES += $(SCTP_IMPL_CLASSES)
 endif
 
-ifeq ($(call isTargetOsEnv, bsd.openbsd bsd.netbsd), true)
+# libsctp is built for linux alone, so none of the BSDs have the native side
+# the Impl classes call into.  They take the macosx classes instead, which
+# answer that the protocol is not there.
+ifeq ($(call isTargetOs, bsd), true)
   EXCLUDE_FILES += $(SCTP_IMPL_CLASSES)
-  ## WORKAROUND need to provide Impl classes that throw UnsupportedOperationException
   SRC_SUBDIRS += macosx/classes
 endif
 
 ifeq ($(call isTargetOsType, unix), true)
   ifeq ($(call isTargetOs, macosx aix), false)
-    ifeq ($(call isTargetOsEnv, bsd.openbsd), false)
+    # UnsupportedUtil is what the macosx classes above report through, so it
+    # has to stay wherever they are used -- every BSD now, not OpenBSD alone.
+    ifeq ($(call isTargetOs, bsd), false)
       # This class is not needed on "unix" because SCTP in Java is supported for that platform
       EXCLUDE_FILES += $(TOPDIR)/src/jdk.sctp/share/classes/sun/nio/ch/sctp/UnsupportedUtil.java
     endif

@@ -27,8 +27,14 @@
 
 include LibCommon.gmk
 
+# FreeBSD has SCTP, but the binding here is not written against it: Sctp.h
+# takes its types from <linux/types.h> -- __s32, __u16 and the rest -- and
+# names structures that FreeBSD's <netinet/sctp.h> spells differently.  The
+# build was turned on for bsd.freebsd without that work being done, so the
+# first compile of it fails on the missing header.  Until somebody ports the
+# binding, linux is where this builds.
 SCTP_SUPPORTED=
-ifeq ($(call Or, $(call isTargetOs, linux) $(call isTargetOsEnv, bsd.freebsd)), true)
+ifeq ($(call isTargetOs, linux), true)
   SCTP_SUPPORTED=true
 endif
 
