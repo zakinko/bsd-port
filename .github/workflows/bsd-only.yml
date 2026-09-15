@@ -1,0 +1,24 @@
+#
+# The four BSD cross builds on their own.
+#
+# main.yml builds them too, but it builds sixty other things first, and while
+# this branch is being brought to a state where all four pass, the other sixty
+# are answering a question nobody asked. This is the same four jobs, reachable
+# without them.
+#
+name: 'BSD only'
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - bsd-all
+
+concurrency:
+  group: bsd-only-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build
+    uses: ./.github/workflows/build-bsd.yml
