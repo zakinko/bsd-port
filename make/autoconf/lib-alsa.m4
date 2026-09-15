@@ -101,8 +101,19 @@ AC_DEFUN_ONCE([LIB_SETUP_ALSA],
       )
     fi
     if test "x$ALSA_FOUND" = xno; then
-      HELP_MSG_MISSING_DEPENDENCY([alsa])
-      AC_MSG_ERROR([Could not find alsa! $HELP_MSG])
+      if test "x$OPENJDK_TARGET_OS" = xbsd; then
+        # alsa-lib is a package on the BSDs, not part of the system, so a
+        # build that does not have it is ordinary rather than broken -- a
+        # cross build against the distribution sets is one.  libjsound is
+        # then built without a back end, which is what the BSDs got before
+        # anyone wired alsa up at all.
+        AC_MSG_WARN([alsa not found; libjsound will have no back end])
+        ALSA_CFLAGS=
+        ALSA_LIBS=
+      else
+        HELP_MSG_MISSING_DEPENDENCY([alsa])
+        AC_MSG_ERROR([Could not find alsa! $HELP_MSG])
+      fi
     fi
   fi
 
